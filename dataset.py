@@ -5,7 +5,7 @@
   from dataset import SPVCharDataset, create_dataloaders
 
   train_loader, val_loader, test_loader = create_dataloaders(
-      labels_csv="E:/dataset/augmented_spv/labels.csv",
+      labels_csv="E:/dataset/char_spv_augmented/labels.csv",
       resolution="6x6",
       batch_size=64,
   )
@@ -272,8 +272,7 @@ if __name__ == "__main__":
 
     # 尝试加载数据
     possible_csvs = [
-        "E:/dataset/augmented_spv/labels.csv",
-        "outputs/augmented_spv/labels.csv",
+        "E:/dataset/char_spv_augmented/labels.csv",
     ]
 
     found = False
