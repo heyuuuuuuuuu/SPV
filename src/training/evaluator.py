@@ -9,22 +9,21 @@
   - per_group_accuracy.csv     分组准确率 (低/中/高复杂度)
 
 用法:
-  python evaluate_recognition.py --checkpoint outputs/train_recognition/best_model.pth
-  python evaluate_recognition.py --checkpoint best_model.pth --labels-csv data.csv
+  from src.training import evaluate
+  evaluate(checkpoint_path="best_model.pth", labels_csv="labels.csv", output_dir="outputs/")
 """
 
 import os
 import csv
 import json
-import argparse
 import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
 
-from models import create_model
-from dataset import SPVCharDataset
-from utils_metrics import (
+from src.models import create_model
+from src.data import SPVCharDataset
+from src.utils import (
     topk_accuracy,
     topk_predictions,
     softmax,
@@ -72,7 +71,6 @@ def evaluate(
     Returns:
         评估指标 dict
     """
-    # ── 设置 ──
     if device == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
@@ -137,33 +135,32 @@ def evaluate(
 
     for batch in test_loader:
         images = batch["image"].to(device)
-        labels = batch["label"]  # CPU
+        labels = batch["label"]
 
         outputs = model(images)
 
         all_outputs.append(outputs.cpu().numpy())
         all_labels.append(labels.numpy())
 
-        # 收集元信息
         for i in range(len(labels)):
+            meta = batch["meta"]
             all_metas.append({
-                "image_path": batch["meta"]["image_path"][i] if isinstance(batch["meta"]["image_path"], list) else batch["meta"]["image_path"],
-                "label": batch["meta"]["label"][i] if isinstance(batch["meta"]["label"], list) else batch["meta"]["label"],
-                "resolution": batch["meta"]["resolution"][i] if isinstance(batch["meta"]["resolution"], list) else batch["meta"]["resolution"],
-                "scan_mode": batch["meta"]["scan_mode"][i] if isinstance(batch["meta"]["scan_mode"], list) else batch["meta"]["scan_mode"],
-                "complexity_group": batch["meta"]["complexity_group"][i] if isinstance(batch["meta"]["complexity_group"], list) else batch["meta"]["complexity_group"],
-                "augment_id": batch["meta"]["augment_id"][i] if isinstance(batch["meta"]["augment_id"], list) else batch["meta"]["augment_id"],
+                "image_path": meta["image_path"][i] if isinstance(meta["image_path"], list) else meta["image_path"],
+                "label": meta["label"][i] if isinstance(meta["label"], list) else meta["label"],
+                "resolution": meta["resolution"][i] if isinstance(meta["resolution"], list) else meta["resolution"],
+                "scan_mode": meta["scan_mode"][i] if isinstance(meta["scan_mode"], list) else meta["scan_mode"],
+                "complexity_group": meta["complexity_group"][i] if isinstance(meta["complexity_group"], list) else meta["complexity_group"],
+                "augment_id": meta["augment_id"][i] if isinstance(meta["augment_id"], list) else meta["augment_id"],
             })
 
-    all_outputs = np.concatenate(all_outputs, axis=0)  # (N, C)
-    all_labels = np.concatenate(all_labels, axis=0)    # (N,)
-
+    all_outputs = np.concatenate(all_outputs, axis=0)
+    all_labels = np.concatenate(all_labels, axis=0)
     N = len(all_labels)
     print(f"  完成 {N} 个样本的推理")
 
     # ── 5. 计算 Top-K ──
     topk = topk_accuracy(all_outputs, all_labels, topk=(1, 5))
-    preds = np.argmax(all_outputs, axis=1)             # Top-1 预测
+    preds = np.argmax(all_outputs, axis=1)
     preds_detail = topk_predictions(all_outputs, all_labels, topk=(1, 5))
     probs = softmax(all_outputs)
 
@@ -203,7 +200,7 @@ def evaluate(
         for r in res_groups:
             print(f"    {r}: Top-1={per_resolution.get(r, 0):.4f}")
 
-    # ── 10. 保存 test_metrics.json ──
+    # ── 10. 保存结果 ──
     metrics = {
         "num_samples": N,
         "num_classes": num_classes,
@@ -224,7 +221,7 @@ def evaluate(
         json.dump(metrics, f, ensure_ascii=False, indent=2)
     print(f"\n  test_metrics.json → {metrics_path}")
 
-    # ── 11. 保存 test_predictions.csv ──
+    # ── 11. test_predictions.csv ──
     preds_csv = os.path.join(output_dir, "test_predictions.csv")
     with open(preds_csv, "w", encoding="utf-8-sig", newline="") as f:
         fieldnames = [
@@ -255,11 +252,10 @@ def evaluate(
             })
     print(f"  test_predictions.csv → {preds_csv}")
 
-    # ── 12. 保存 confusion_matrix.csv ──
+    # ── 12. confusion_matrix.csv ──
     cm_csv = os.path.join(output_dir, "confusion_matrix.csv")
     with open(cm_csv, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        # 表头
         header = ["true_label"] + [id_to_label.get(i, str(i)) for i in range(num_classes)]
         writer.writerow(header)
         for i in range(num_classes):
@@ -267,7 +263,7 @@ def evaluate(
             writer.writerow(row)
     print(f"  confusion_matrix.csv → {cm_csv}")
 
-    # ── 13. 保存 per_class_accuracy.csv ──
+    # ── 13. per_class_accuracy.csv ──
     pca_csv = os.path.join(output_dir, "per_class_accuracy.csv")
     with open(pca_csv, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["class_id", "label", "n_samples", "n_correct", "accuracy"])
@@ -276,7 +272,7 @@ def evaluate(
             writer.writerow(row)
     print(f"  per_class_accuracy.csv → {pca_csv}")
 
-    # ── 14. 保存 per_group_accuracy.csv ──
+    # ── 14. per_group_accuracy.csv ──
     if group_names:
         pga_csv = os.path.join(output_dir, "per_group_accuracy.csv")
         with open(pga_csv, "w", encoding="utf-8-sig", newline="") as f:
@@ -294,87 +290,3 @@ def evaluate(
 
     print("\n评估完成!")
     return metrics
-
-
-# ═══════════════════════════════════════════════════════════
-# 主程序
-# ═══════════════════════════════════════════════════════════
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="SPV 汉字识别模型评估"
-    )
-    parser.add_argument(
-        "--checkpoint",
-        required=True,
-        help="训练好的 .pth checkpoint 路径"
-    )
-    parser.add_argument(
-        "--labels-csv",
-        default="E:/dataset/augmented_spv/labels.csv",
-        help="labels.csv 路径"
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="outputs/evaluate_recognition",
-        help="评估输出目录"
-    )
-    parser.add_argument(
-        "--resolution",
-        default=None,
-        help="分辨率筛选 (None=全部)"
-    )
-    parser.add_argument(
-        "--scan-mode",
-        default=None,
-        help="扫描模式筛选 (None=全部)"
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=64,
-        help="批大小 (默认 64)"
-    )
-    parser.add_argument(
-        "--device",
-        default="auto",
-        help="设备: auto/cuda/cpu"
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=4,
-        help="数据加载线程 (默认 4)"
-    )
-    parser.add_argument(
-        "--complexity-csv",
-        default="E:/dataset/complexity_scores.csv",
-        help="复杂度 CSV (用于附加 complexity_group)"
-    )
-
-    args = parser.parse_args()
-
-    print("=" * 60)
-    print("SPV 汉字识别 — 模型评估")
-    print("=" * 60)
-    print(f"Checkpoint:   {args.checkpoint}")
-    print(f"labels.csv:   {args.labels_csv}")
-    print(f"输出目录:     {args.output_dir}")
-    print(f"分辨率:       {args.resolution or '全部'}")
-    print()
-
-    evaluate(
-        checkpoint_path=args.checkpoint,
-        labels_csv=args.labels_csv,
-        output_dir=args.output_dir,
-        resolution=args.resolution,
-        scan_mode=args.scan_mode,
-        batch_size=args.batch_size,
-        device=args.device,
-        num_workers=args.num_workers,
-        complexity_csv=args.complexity_csv,
-    )
-
-
-if __name__ == "__main__":
-    main()

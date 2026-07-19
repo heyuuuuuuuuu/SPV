@@ -2,17 +2,13 @@
 训练脚本: SPV 汉字识别模型训练
 
 用法:
-  python train_recognition.py --model light_cnn --resolution 6x6 --epochs 50
-  python train_recognition.py --model resnet18 --resolution adaptive --batch-size 32 --lr 0.001
+  from src.training import train
+  train(labels_csv="labels.csv", output_dir="outputs/", model_name="light_cnn")
 """
 
 import os
 import csv
-import json
-import argparse
 import time
-from pathlib import Path
-
 import numpy as np
 
 import torch
@@ -20,9 +16,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from models import create_model
-from dataset import create_dataloaders
-from utils_metrics import topk_accuracy
+from src.models import create_model
+from src.data import create_dataloaders
+from src.utils import topk_accuracy
 
 
 # ═══════════════════════════════════════════════════════════
@@ -91,11 +87,9 @@ def validate(
         all_outputs.append(outputs.cpu().numpy())
         all_labels.append(labels.cpu().numpy())
 
-    # 合并所有输出
     all_outputs = np.concatenate(all_outputs, axis=0)
     all_labels = np.concatenate(all_labels, axis=0)
 
-    # 计算 Top-K accuracy
     acc = topk_accuracy(all_outputs, all_labels, topk=(1, 5))
 
     return {
@@ -149,7 +143,6 @@ def train(
     Returns:
         best_model_path, training_log
     """
-    # ── 设置 ──
     torch.manual_seed(seed)
     np.random.seed(seed)
 
@@ -162,7 +155,6 @@ def train(
     print(f"使用设备: {device}")
     print(f"输出目录: {output_dir}")
 
-    # ── 数据 ──
     loaders = create_dataloaders(
         labels_csv=labels_csv,
         resolution=resolution,
@@ -177,23 +169,18 @@ def train(
     num_classes = loaders["num_classes"]
     train_loader = loaders["train"]
     val_loader = loaders["val"]
-    test_loader = loaders["test"]
 
-    # ── 模型 ──
     if model_name == "resnet18":
-        # ResNet18 默认 3 通道 (复制灰度图)
         model = create_model(model_name, num_classes=num_classes, in_channels=3)
     else:
         model = create_model(model_name, num_classes=num_classes, in_channels=1)
     model = model.to(device)
     print(f"模型: {model_name}  |  参数: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
 
-    # ── 损失 & 优化器 & 调度器 ──
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = CosineAnnealingLR(optimizer, T_max=epochs)
 
-    # ── 训练日志 ──
     log_path = os.path.join(output_dir, "training_log.csv")
     log_fields = [
         "epoch", "train_loss", "val_loss",
@@ -216,24 +203,16 @@ def train(
     for epoch in range(1, epochs + 1):
         t_start = time.time()
 
-        # 训练
         train_metrics = train_one_epoch(model, train_loader, criterion, optimizer, device)
-
-        # 验证
         val_metrics = validate(model, val_loader, criterion, device)
-
-        # 调度
         scheduler.step()
         current_lr = scheduler.get_last_lr()[0]
-
         elapsed = time.time() - t_start
 
-        # 打印
         print(f"{epoch:>6d}  {train_metrics['loss']:>10.4f}  {val_metrics['loss']:>10.4f}  "
               f"{val_metrics['top1_accuracy']:>10.4f}  {val_metrics['top5_accuracy']:>10.4f}  "
               f"{current_lr:>10.6f}  {elapsed:>7.1f}s")
 
-        # 记录日志
         log_entry = {
             "epoch": epoch,
             "train_loss": train_metrics["loss"],
@@ -247,7 +226,6 @@ def train(
             writer = csv.DictWriter(f, fieldnames=log_fields)
             writer.writerow(log_entry)
 
-        # 保存最佳模型 (按 val Top-1 accuracy)
         if val_metrics["top1_accuracy"] > best_val_top1:
             best_val_top1 = val_metrics["top1_accuracy"]
             torch.save({
@@ -272,120 +250,3 @@ def train(
     print(f"  最佳模型: {best_model_path}")
 
     return best_model_path, log_path
-
-
-# ═══════════════════════════════════════════════════════════
-# 主程序
-# ═══════════════════════════════════════════════════════════
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="SPV 汉字识别模型训练"
-    )
-    parser.add_argument(
-        "--labels-csv",
-        default="E:/dataset/char_spv_augmented/labels.csv",
-        help="labels.csv 路径"
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="outputs/train_recognition",
-        help="训练输出目录"
-    )
-    parser.add_argument(
-        "--model",
-        default="light_cnn",
-        choices=["light_cnn", "resnet18"],
-        help="模型类型 (默认 light_cnn)"
-    )
-    parser.add_argument(
-        "--resolution",
-        default=None,
-        help="分辨率筛选 (None=全部, 如 6x6)"
-    )
-    parser.add_argument(
-        "--scan-mode",
-        default=None,
-        help="扫描模式筛选 (None=全部)"
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=50,
-        help="训练轮数 (默认 50)"
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=64,
-        help="批大小 (默认 64)"
-    )
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=0.001,
-        help="初始学习率 (默认 1e-3)"
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=0.01,
-        help="权重衰减 (默认 1e-2)"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="随机种子 (默认 42)"
-    )
-    parser.add_argument(
-        "--device",
-        default="auto",
-        help="设备: auto/cuda/cpu"
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=4,
-        help="数据加载线程 (默认 4)"
-    )
-    parser.add_argument(
-        "--complexity-csv",
-        default="E:/dataset/complexity_scores.csv",
-        help="复杂度 CSV (用于附加 complexity_group)"
-    )
-
-    args = parser.parse_args()
-
-    print("=" * 60)
-    print("SPV 汉字识别 — 模型训练")
-    print("=" * 60)
-    print(f"labels.csv:   {args.labels_csv}")
-    print(f"模型:         {args.model}")
-    print(f"分辨率:       {args.resolution or '全部'}")
-    print(f"扫描模式:     {args.scan_mode or '全部'}")
-    print(f"Epochs:       {args.epochs}")
-    print(f"Batch Size:   {args.batch_size}")
-    print(f"Learning Rate:{args.lr}")
-    print(f"Seed:         {args.seed}")
-    print()
-
-    train(
-        labels_csv=args.labels_csv,
-        output_dir=args.output_dir,
-        model_name=args.model,
-        resolution=args.resolution,
-        scan_mode=args.scan_mode,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        lr=args.lr,
-        weight_decay=args.weight_decay,
-        seed=args.seed,
-        device=args.device,
-        num_workers=args.num_workers,
-        complexity_csv=args.complexity_csv,
-    )
-
-
-if __name__ == "__main__":
-    main()
