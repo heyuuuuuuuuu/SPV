@@ -12,11 +12,13 @@ import matplotlib.pyplot as plt
 import matplotlib
 from PIL import Image
 
+from src.config import RENDERED_DIR
+
 # 修复中文乱码
 matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "KaiTi", "SimSun"]
 matplotlib.rcParams["axes.unicode_minus"] = False
 
-BASE_DIR = "E:/dataset/char_rendered_hei"
+BASE_DIR = str(RENDERED_DIR)
 
 
 def preview_grid(size: str = "64", n: int = 100):

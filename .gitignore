@@ -4,9 +4,10 @@ __pycache__/
 *$py.class
 *.so
 
-# Model files (optional, uncomment to exclude)
-# *.pth
-# *.pt
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
 
 # Distribution / packaging
 .Python
@@ -41,3 +42,16 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated data and experiment artifacts
+data/
+outputs/
+*.tar
+*.tar.gz
+*.zip
+*.log
+cos_*_progress.txt
+upload_progress.txt
+download_progress.txt
+
+.pi/

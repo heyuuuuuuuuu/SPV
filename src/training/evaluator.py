@@ -122,7 +122,8 @@ def evaluate(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
+        persistent_workers=num_workers > 0,
     )
 
     print(f"  test samples: {len(test_dataset)}")

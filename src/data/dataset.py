@@ -62,6 +62,7 @@ class SPVCharDataset(Dataset):
         self.scan_mode = scan_mode
         self.target_size = target_size
         self.transform = transform
+        self._labels_csv = os.path.abspath(labels_csv)
 
         # ── 1. 读取 labels.csv ──
         self.samples = []
@@ -71,8 +72,9 @@ class SPVCharDataset(Dataset):
                 # 筛选 split (非 "all" 时)
                 if split != "all" and row.get("split", "") != split:
                     continue
-                # 筛选 resolution
-                if resolution is not None and row.get("resolution", "") != resolution:
+                # 优先按生成配置筛选，以区分 fixed 与 adaptive 样本。
+                sample_resolution = row.get("resolution_config") or row.get("resolution", "")
+                if resolution is not None and sample_resolution != resolution:
                     continue
                 # 筛选 scan_mode (可选)
                 if scan_mode is not None and row.get("scan_mode", "") != scan_mode:
@@ -115,10 +117,21 @@ class SPVCharDataset(Dataset):
         sample = self.samples[idx]
 
         # ── 加载图像 ──
-        img_path = sample["image_path"]
-        if not os.path.isabs(img_path):
-            # 相对于 labels.csv 所在目录
-            img_path = os.path.join(os.path.dirname(self._labels_csv), img_path)
+        raw_path = sample["image_path"]
+        filename = os.path.basename(raw_path.replace("\\", "/"))
+        candidates = [
+            raw_path,
+            os.path.join(os.path.dirname(self._labels_csv), raw_path),
+            os.path.join(
+                os.path.dirname(self._labels_csv),
+                sample.get("resolution_config") or sample.get("resolution", ""),
+                sample.get("split", self.split),
+                filename,
+            ),
+        ]
+        img_path = next((path for path in candidates if os.path.exists(path)), None)
+        if img_path is None:
+            raise FileNotFoundError(f"样本图像不存在: {raw_path}")
 
         image = Image.open(img_path).convert("L")                   # 灰度
         image = image.resize((self.target_size, self.target_size), Image.LANCZOS)
@@ -138,6 +151,7 @@ class SPVCharDataset(Dataset):
             "label": label_str,
             "label_id": label_id,
             "resolution": sample.get("resolution", ""),
+            "resolution_config": sample.get("resolution_config", sample.get("resolution", "")),
             "scan_mode": sample.get("scan_mode", ""),
             "augment_id": sample.get("augment_id", ""),
             "complexity_group": sample.get("complexity_group", ""),
@@ -163,6 +177,7 @@ def create_dataloaders(
     target_size: int = 128,
     complexity_csv: str = None,
     label_to_id: dict = None,
+    seed: int = 42,
 ) -> dict[str, DataLoader]:
     """
     创建 train / val / test DataLoader
@@ -220,28 +235,33 @@ def create_dataloaders(
         label_to_id=shared_label_to_id,
     )
 
+    generator = torch.Generator().manual_seed(seed)
+    loader_kwargs = {
+        "num_workers": num_workers,
+        "pin_memory": torch.cuda.is_available(),
+        "persistent_workers": num_workers > 0,
+    }
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
-        pin_memory=True,
+        generator=generator,
+        **loader_kwargs,
     )
 
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
+        **loader_kwargs,
     )
 
     test_loader = DataLoader(
         test_dataset,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
+        **loader_kwargs,
     )
 
     print(f"数据集统计 (resolution={resolution or 'all'}, scan_mode={scan_mode or 'all'}):")
@@ -261,39 +281,3 @@ def create_dataloaders(
         "val_dataset": val_dataset,
         "test_dataset": test_dataset,
     }
-
-
-# ═══════════════════════════════════════════════════════════
-# 测试
-# ═══════════════════════════════════════════════════════════
-
-if __name__ == "__main__":
-    print("测试 SPVCharDataset...")
-
-    # 尝试加载数据
-    possible_csvs = [
-        "E:/dataset/char_spv_augmented/labels.csv",
-    ]
-
-    found = False
-    for csv_path in possible_csvs:
-        if os.path.exists(csv_path):
-            print(f"  找到 labels.csv: {csv_path}")
-            try:
-                ds = SPVCharDataset(csv_path, split="train")
-                print(f"  train samples: {len(ds)}")
-                print(f"  num_classes: {ds.num_classes}")
-
-                # 取一个样本检查
-                sample = ds[0]
-                print(f"  sample[0] image shape: {sample['image'].shape}")
-                print(f"  sample[0] label: {sample['label']}")
-                print(f"  sample[0] meta keys: {list(sample['meta'].keys())}")
-                found = True
-            except Exception as e:
-                print(f"  加载失败: {e}")
-            break
-
-    if not found:
-        print("  未找到 labels.csv, 跳过加载测试")
-        print("  请先运行 data_augmentation.py 生成数据")

@@ -10,7 +10,7 @@
 
 用法：
   python recognition.py
-  python recognition.py --input-dir E:/dataset/char_spv_fixed --output-dir E:/results/confusion
+  python src/scripts/confusion.py --input-dir data/char_spv_fixed --output-dir outputs/confusion
   python recognition.py --resolutions 6x6 8x8 10x10 12x12 --risk-percentile 20
   python recognition.py --query 日 --top-k 5
 """
@@ -18,6 +18,8 @@
 import os
 import csv
 import argparse
+
+from src.config import OUTPUTS_DIR, SPV_FIXED_DIR
 import numpy as np
 from PIL import Image
 from pathlib import Path
@@ -386,12 +388,12 @@ def main():
     )
     parser.add_argument(
         "--input-dir",
-        default="E:/dataset/char_spv_fixed",
+        default=str(SPV_FIXED_DIR),
         help="SPV 图像根目录 (含 6x6/ 8x8/ 子目录)"
     )
     parser.add_argument(
         "--output-dir",
-        default="E:/results/confusion",
+        default=str(OUTPUTS_DIR / "confusion"),
         help="输出目录"
     )
     parser.add_argument(

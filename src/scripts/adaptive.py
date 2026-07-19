@@ -7,12 +7,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import csv
 import numpy as np
 from PIL import Image
+from src.config import ADAPTIVE_PIXELIZED_DIR, COMPLEXITY_CSV, DATA_DIR, RENDERED_DIR
 from src.core.adaptive import adaptive_pixelize, save_results, GROUP_TO_RESOLUTION, THRESHOLD, pixelize_cell
 
-INPUT_CSV = "E:/dataset/complexity_scores.csv"
-INPUT_IMG_DIR = "E:/dataset/char_rendered_hei"
-OUTPUT_DIR = "E:/dataset/char_adaptive_pixelized"
-OUTPUT_CSV = "E:/dataset/adaptive_allocation.csv"
+INPUT_CSV = str(COMPLEXITY_CSV)
+INPUT_IMG_DIR = str(RENDERED_DIR)
+OUTPUT_DIR = str(ADAPTIVE_PIXELIZED_DIR)
+OUTPUT_CSV = str(DATA_DIR / "adaptive_allocation.csv")
 
 if __name__ == "__main__":
     # 单字查询

@@ -1,159 +1,123 @@
-# AGENTS.md — SPV (Simulated Prosthetic Vision) 汉字识别
+# AGENTS.md — SPV 汉字识别开发指南
 
-## 项目概述
+## 目标
 
-本项目研究**模拟假体视觉 (SPV)** 下汉字的可识别性。将汉字经过低分辨率像素化 → 高斯磷光点仿真渲染 → 训练 CNN 识别模型 / 混淆分析，探讨不同分辨率 (6×6, 8×8, 10×10, 12×14) 下汉字的区分能力，并探索**复杂度自适应分辨率分配**策略。
+本项目研究模拟假体视觉（SPV）条件下 999 个常用汉字的可识别性，比较固定电极阵列 `6×6 / 8×8 / 10×10 / 12×12`，并评估基于 BPSCA 复杂度的自适应分辨率策略。
 
-## 技术栈
+当前仓库只保留一套实现。旧 checkpoint、旧 CLI、兼容层和历史实验结果均不作为依据；模型或数据协议变化后必须重新训练。
 
-- **Python 3** + **PyTorch** (>=2.0) + **torchvision**
-- 图像处理: Pillow, OpenCV
-- 数据: NumPy, Pandas, scikit-learn
-- 云存储: 腾讯云 COS (cos-python-sdk-v5)
-- 可视化: matplotlib
+## 权威配置
 
-## 项目结构
+- Python：`3.12`
+- 环境：`pyproject.toml` + `uv.lock`
+- 运行命令：始终使用 `uv run python ...`
+- 路径配置：`src/config.py`；可用 `SPV_DATA_DIR`、`SPV_OUTPUTS_DIR` 覆盖根目录
+- 数据标签：`data/dataset/labels.csv`
+- 生成产物：`data/` 和 `outputs/`，不提交 Git
+- 不使用 `pip install -r requirements.txt`，不重新引入 requirements.txt
 
-```
-SPV/
-├── src/                     # Python 包 (核心逻辑)
-│   ├── __init__.py
-│   ├── core/                # 核心流水线
-│   │   ├── render.py        #   汉字字体渲染 (CharRenderer)
-│   │   ├── complexity.py    #   BPSCA 复杂度计算
-│   │   ├── pixelize.py      #   固定分辨率像素化
-│   │   ├── adaptive.py      #   复杂度自适应分辨率分配
-│   │   └── phosphene.py     #   高斯磷光点仿真渲染
-│   ├── data/                # 数据模块
-│   │   ├── augmentation.py  #   数据增强流水线
-│   │   └── dataset.py       #   PyTorch Dataset + DataLoader
-│   ├── models/              # 模型定义
-│   │   ├── light_cnn.py     #   LightCNN (轻量级)
-│   │   ├── resnet18.py      #   ResNet18SPV
-│   │   └── factory.py       #   模型工厂函数 create_model()
-│   ├── training/            # 训练与评估
-│   │   ├── trainer.py       #   训练循环
-│   │   └── evaluator.py     #   评估 (混淆矩阵/分组准确率)
-│   ├── analysis/            # 分析工具
-│   │   ├── confusion.py     #   自排除最近邻混淆分析
-│   │   └── compare.py       #   固定 vs 自适应对比
-│   ├── scan.py              # 部件顺序扫描显示
-│   ├── utils/               # 工具函数
-│   │   ├── metrics.py       #   Top-K 准确率/混淆矩阵等
-│   │   └── preview.py       #   汉字预览工具
-│   └── cloud/               # 云存储
-│       ├── transfer.py      #   COS 传输 (纯标准库)
-│       ├── upload.py        #   上传数据集 (with SDK)
-│       └── download.py      #   下载数据集 (with SDK)
-├── src/scripts/                 # CLI 入口脚本
-│   ├── render.py
-│   ├── complexity.py
-│   ├── pixelize.py
-│   ├── adaptive.py
-│   ├── spv_render.py
-│   ├── scan.py
-│   ├── augment.py
-│   ├── train.py
-│   ├── evaluate.py
-│   ├── confusion.py
-│   ├── compare.py
-│   ├── preview.py
-│   ├── upload.py
-│   └── download.py
-├── _legacy/                 # 旧文件备份 (重构前的原始文件)
-├── docs/                    # 文档
-│   └── recognition.md       # 混淆分析详细文档
-├── outputs/                 # 输出目录
-├── requirements.txt
-└── README.md
-```
-
-## 数据流水线
-
-```
-汉字原图 → pixelize (二值网格)
-         → spv_render (高斯光斑仿真)
-         → data_augmentation (增强: 平移/抖动/噪声)
-         → dataset (PyTorch Dataset)
-         → train (训练 CNN)
-         → evaluate (评估)
-```
-
-## 关键设计决策
-
-### 分辨率 (electrode array sizes)
-- **6×6, 8×8, 10×10, 12×12** 是固定分辨率集合
-- 8×8 作为参考基准分辨率 (确定混淆阈值 T)
-- 12×12 足以完全消除汉字混淆
-
-### 模型
-- **LightCNN**: 轻量 4 层 CNN (~0.5M params)，输入 1 通道灰度图
-- **ResNet18SPV**: 标准 ResNet18，支持 1 通道或 3 通道 (灰度复制)
-- 默认类别数 999 (常用汉字)
-
-### 混淆分析 (src/analysis/confusion.py)
-- 自排除最近邻 (Self-Excluded Nearest-Neighbor)
-- 余弦距离度量
-- 8×8 基准确定统一阈值 T，跨分辨率比较
-
-### 复杂度自适应 (src/core/adaptive.py, src/core/complexity.py)
-- BPSCA (黑色像素统计复杂度算法)
-- 低复杂度 → 8×8, 中复杂度 → 10×10, 高复杂度 → 12×12
-
-## 路径约定
-
-代码中硬编码了大量 Windows 路径 (`E:/dataset/...`, `E:/results/...`)，在 Linux 环境下运行前需修改为实际路径。数据集默认结构:
-
-```
-E:/dataset/
-├── char_rendered_hei/       # 原始渲染汉字 (render.py)
-│   ├── 64x64/
-│   └── 128x128/
-├── char_pixelized/          # 像素化网格 (pixelize.py)
-│   ├── 6x6/
-│   ├── 8x8/
-│   ├── 10x10/
-│   └── 12x12/
-├── char_adaptive_pixelized/ # 自适应分辨率像素化
-├── char_spv_fixed/          # 固定分辨率 SPV 图像
-├── char_spv_adaptive/       # 自适应分辨率 SPV 图像
-└── augmented_src/           # 增强后数据集 + labels.csv
-```
-
-## 编码规范
-
-- 文件头使用中文注释，说明模块功能
-- 使用 `═══` 分隔符标记代码段
-- 类型注解 (type hints) 用于函数签名
-- 参数使用 argparse 命令行接口
-
-## 常用命令
+初始化：
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
-
-# 从 CLI 脚本运行 (推荐)
-python src/scripts/render.py
-python src/scripts/complexity.py
-python src/scripts/pixelize.py
-python src/scripts/adaptive.py
-python src/scripts/spv_render.py
-python src/scripts/augment.py
-python src/scripts/train.py --resolution 8x8 --model light_cnn
-python src/scripts/evaluate.py --checkpoint outputs/best_model.pth
-python src/scripts/confusion.py --risk-percentile 20
-python src/scripts/compare.py
-python src/scripts/preview.py
-
-# 单字查询模式
-python src/scripts/complexity.py 明
-python src/scripts/pixelize.py 明 8
-python src/scripts/adaptive.py 明
-python src/scripts/spv_render.py 明 8
-
-# 从 Python API 调用
-from src.core import pixelize, batch_pixelize
-from src.models import create_model
-from src.training import train, evaluate
+export UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+uv sync
 ```
+
+## 代码边界
+
+```text
+src/config.py       项目根目录及默认路径
+src/core/           无 CLI 的图像处理算法
+src/data/           数据生成、Dataset、DataLoader
+src/models/         模型定义与工厂
+src/training/       训练、验证、评估
+src/analysis/       混淆和 fixed/adaptive 分析
+src/cloud/          COS 归档上传/下载
+src/scripts/        唯一 CLI 层
+src/utils/          通用指标与预览
+```
+
+设计约束：
+
+1. 核心模块不得包含 `if __name__ == "__main__"`、默认实验路径或命令行解析。
+2. CLI 仅放在 `src/scripts/`，参数必须可覆盖默认路径。
+3. 禁止硬编码 Windows 路径、用户主目录或机器相关绝对路径。
+4. 默认路径从 `src.config` 导入；运行时数据路径可以由 CLI 参数覆盖。
+5. 不保留同一功能的多个实现。重构时直接删除废弃代码，不增加兼容 wrapper。
+6. checkpoint 必须由当前模型代码生成；结构变化时旧 checkpoint 直接作废。
+
+## 数据协议
+
+`labels.csv` 至少包含：
+
+```text
+image_path,label,split,resolution
+```
+
+推荐同时包含：
+
+```text
+resolution_config,augment_id,complexity_group
+```
+
+约定：
+
+- `split` 只能是 `train / val / test`。
+- `resolution` 表示实际电极阵列大小。
+- `resolution_config` 表示实验配置，用于区分 fixed 与 adaptive；新数据必须写入该字段。
+- CSV 中的新路径应写为相对于 CSV 所在目录的 POSIX 路径。
+- train/val/test 按增强样本划分，只能解释为同字形扰动泛化；不得宣称跨字体泛化。
+- adaptive 当前映射：low→8×8、medium→10×10、high→12×12。
+
+## Baseline 协议
+
+- 模型：LightCNN
+- 类别：999
+- 输入：单通道、`128×128`、归一化至 `[0,1]`
+- 优化器：AdamW
+- 调度器：CosineAnnealingLR
+- 固定随机种子：42
+- 每个分辨率独立训练、独立输出目录
+- 正式报告至少包含 test Top-1、Top-5、逐类准确率和混淆矩阵
+- smoke test 仅验证链路，不可作为实验结论
+
+```bash
+for res in 6x6 8x8 10x10 12x12; do
+  uv run python src/scripts/train.py \
+    --model light_cnn --resolution "$res" --epochs 50 --seed 42 \
+    --output-dir "outputs/baseline/light_cnn/$res"
+done
+```
+
+## 修改要求
+
+- 函数签名使用类型注解；优先使用 `pathlib.Path` 处理新路径代码。
+- 文件头简要说明职责，注释解释实验设计而非重复代码。
+- 新增依赖只修改 `pyproject.toml`，随后执行 `uv lock`。
+- 不提交数据集、归档、模型、日志、生成图片、缓存或凭据。
+- COS 凭据只能通过 `COS_SECRET_ID`、`COS_SECRET_KEY` 环境变量提供。
+- 删除文件前检查引用；不要修改用户未要求处理的论文参考资料。
+
+## 最低验证
+
+每次代码修改后至少执行：
+
+```bash
+uv run python -m compileall -q src
+uv run python src/scripts/train.py --help
+uv run python src/scripts/evaluate.py --help
+git diff --check
+```
+
+涉及数据或训练代码时，再验证：
+
+```bash
+uv run python - <<'PY'
+from src.config import LABELS_CSV
+from src.data import SPVCharDataset
+sample = SPVCharDataset(str(LABELS_CSV), split="train", resolution="8x8")[0]
+print(sample["image"].shape, sample["meta"])
+PY
+```
+
+不得为了通过验证而静默吞掉数据缺失、标签越界或 checkpoint 不匹配错误。

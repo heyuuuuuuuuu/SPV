@@ -124,6 +124,8 @@ def save_results(results: list[dict], output_csv: str):
 
     # 统计
     n = len(results)
+    if n == 0:
+        raise ValueError("没有可保存的自适应分辨率结果")
     low = sum(1 for r in results if r["group"] == "low")
     med = sum(1 for r in results if r["group"] == "medium")
     high = sum(1 for r in results if r["group"] == "high")
@@ -137,53 +139,3 @@ def save_results(results: list[dict], output_csv: str):
     print(f"\n结果已保存: {output_csv}")
 
     return results
-
-
-# ═══════════════════════════════════════════════════════════
-# 主程序
-# ═══════════════════════════════════════════════════════════
-if __name__ == "__main__":
-    import sys
-
-    INPUT_CSV = "E:/dataset/complexity_scores.csv"
-    INPUT_IMG_DIR = "E:/dataset/char_rendered_hei"
-    OUTPUT_DIR = "E:/dataset/char_adaptive_pixelized"
-    OUTPUT_CSV = "E:/dataset/adaptive_allocation.csv"
-
-    # 单字查询: python adaptive.py 明
-    if len(sys.argv) > 1:
-        char = sys.argv[1]
-        if len(char) == 1 and "\u4e00" <= char <= "\u9fff":
-            # 查找复杂度等级
-            level = "unknown"
-            complexity = 0.0
-            with open(INPUT_CSV, encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    if row["汉字"] == char:
-                        level = row["等级"]
-                        complexity = float(row["复杂度"])
-                        break
-
-            gs = GROUP_TO_RESOLUTION.get(level, 8)
-            code = ord(char)
-            fname = f"{char}_U+{code:04X}.png"
-            path = os.path.join(INPUT_IMG_DIR, "64x64", fname)
-
-            if not os.path.exists(path):
-                print(f"未找到汉字 '{char}'")
-            else:
-                arr = np.array(Image.open(path))
-                pix = pixelize_cell(arr, gs, THRESHOLD)
-                print(f"{char} | complexity={complexity:.4f} | group={level} | resolution={gs}x{gs}")
-                for row in pix:
-                    print("".join("1" if p == 255 else "0" for p in row))
-                print(f"  lit: {(pix==255).sum()}/{gs*gs} ({(pix==255).sum()/(gs*gs)*100:.0f}%)")
-            sys.exit(0)
-
-    # 批量模式
-    print("=" * 50)
-    print("复杂度自适应分辨率分配")
-    print("=" * 50)
-    results = adaptive_pixelize(INPUT_CSV, INPUT_IMG_DIR, OUTPUT_DIR, THRESHOLD)
-    results.sort(key=lambda r: r["complexity"])
-    save_results(results, OUTPUT_CSV)

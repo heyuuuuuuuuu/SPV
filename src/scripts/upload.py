@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-"""上传数据集到腾讯云 COS"""
-import sys
+"""将数据集打包为单个归档并上传到腾讯云 COS。"""
+
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# 直接执行原始上传逻辑
-exec(open(os.path.join(os.path.dirname(__file__), "..", "cloud", "upload.py")).read())
+from src.cloud.archive_transfer import main
+
+
+if __name__ == "__main__":
+    main(["upload", *sys.argv[1:]])

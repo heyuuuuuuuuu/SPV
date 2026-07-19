@@ -4,9 +4,10 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from src.config import COMPLEXITY_CSV, DATA_DIR, RENDERED_DIR
 from src.core.complexity import batch_compute, compute_complexity
 
-INPUT_DIR = "E:/dataset/char_rendered_hei"
+INPUT_DIR = str(RENDERED_DIR)
 
 if __name__ == "__main__":
     # 单字查询
@@ -21,7 +22,7 @@ if __name__ == "__main__":
                 print(f"未找到汉字 '{char}' 的 {size}x{size} 图像")
             else:
                 result = compute_complexity(path)
-                csv_path = "E:/dataset/complexity_scores.csv" if size == "64" else "E:/dataset/complexity_scores_128.csv"
+                csv_path = str(COMPLEXITY_CSV if size == "64" else DATA_DIR / "complexity_scores_128.csv")
                 level = "unknown"
                 if os.path.exists(csv_path):
                     with open(csv_path, encoding="utf-8-sig") as f:
@@ -36,9 +37,9 @@ if __name__ == "__main__":
     print("=" * 50)
     print("BPSCA 汉字复杂度计算 — 64×64")
     print("=" * 50)
-    batch_compute(INPUT_DIR, "E:/dataset/complexity_scores.csv", size=64)
+    batch_compute(INPUT_DIR, str(COMPLEXITY_CSV), size=64)
 
     print(f"\n{'=' * 50}")
     print("BPSCA 汉字复杂度计算 — 128×128")
     print("=" * 50)
-    batch_compute(INPUT_DIR, "E:/dataset/complexity_scores_128.csv", size=128)
+    batch_compute(INPUT_DIR, str(DATA_DIR / "complexity_scores_128.csv"), size=128)

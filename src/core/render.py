@@ -14,7 +14,7 @@ class CharRenderer:
 
     def __init__(
         self,
-        font_path: str = "C:/Windows/Fonts/simhei.ttf",
+        font_path: str,
         font_size: int = 200,
         target_size: int = 64,
         threshold: int = 128,
@@ -147,22 +147,4 @@ def batch_render(
 
 
 if __name__ == "__main__":
-    INPUT_FILE = "E:/dataset/char_handwriting_Chinese.txt"
-    OUTPUT_DIR_64 = "E:/dataset/char_rendered_hei/64x64"
-    OUTPUT_DIR_128 = "E:/dataset/char_rendered_hei/128x128"
-
-    font_path = "C:/Windows/Fonts/simhei.ttf"
-
-    print(f"Loading chars from: {INPUT_FILE}")
-    chars = load_chars_from_file(INPUT_FILE)
-    print(f"Total unique chars: {len(chars)}")
-
-    print("\n[1/2] Rendering 64x64 (HeiTi)...")
-    batch_render(chars, font_path, OUTPUT_DIR_64, 64, 200, 128, True)
-
-    print("\n[2/2] Rendering 128x128 (HeiTi)...")
-    batch_render(chars, font_path, OUTPUT_DIR_128, 128, 400, 128, True)
-
-    print("\nAll done!")
-    print(f"  64x64  -> {OUTPUT_DIR_64}")
-    print(f"  128x128 -> {OUTPUT_DIR_128}")
+    raise SystemExit("请使用: python src/scripts/render.py --font-path <字体文件>")

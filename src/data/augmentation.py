@@ -26,6 +26,8 @@ from PIL import Image
 from pathlib import Path
 from collections import defaultdict
 
+from src.config import COMPLEXITY_CSV, DATASET_DIR, RENDERED_DIR
+
 
 # ═══════════════════════════════════════════════════════════
 # 配置常量
@@ -552,10 +554,11 @@ def generate_dataset(
                 # 记录标签
                 p = result["params"]
                 labels.append({
-                    "image_path": out_path,
+                    "image_path": os.path.relpath(out_path, output_dir).replace(os.sep, "/"),
                     "label": char,
                     "label_unicode": f"U+{ord(char):04X}",
                     "resolution": actual_res,
+                    "resolution_config": res_label,
                     "augment_id": aug_id,
                     "dx": p["dx"],
                     "dy": p["dy"],
@@ -578,7 +581,7 @@ def generate_dataset(
     # ── 保存 labels.csv ──
     labels_csv = os.path.join(output_dir, "labels.csv")
     fieldnames = [
-        "image_path", "label", "label_unicode", "resolution",
+        "image_path", "label", "label_unicode", "resolution", "resolution_config",
         "augment_id", "dx", "dy", "brightness", "sigma_scale",
         "jitter", "noise_std", "dropout", "split",
     ]
@@ -623,12 +626,12 @@ def main():
     )
     parser.add_argument(
         "--input-dir",
-        default="E:/dataset/char_rendered_hei",
+        default=str(RENDERED_DIR),
         help="原始汉字图像根目录 (含 64x64/ 子目录)"
     )
     parser.add_argument(
         "--output-dir",
-        default="E:/dataset/augmented_spv",
+        default=str(DATASET_DIR),
         help="增强后 SPV 图像输出目录"
     )
     parser.add_argument(
@@ -652,7 +655,7 @@ def main():
     )
     parser.add_argument(
         "--complexity-csv",
-        default="E:/dataset/complexity_scores.csv",
+        default=str(COMPLEXITY_CSV),
         help="BPSCA 复杂度 CSV (adaptive 分辨率需要)"
     )
     parser.add_argument(

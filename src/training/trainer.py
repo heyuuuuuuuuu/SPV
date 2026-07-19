@@ -144,6 +144,7 @@ def train(
         best_model_path, training_log
     """
     torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
     if device == "auto":
@@ -164,6 +165,7 @@ def train(
         target_size=target_size,
         complexity_csv=complexity_csv,
         label_to_id=label_to_id,
+        seed=seed,
     )
 
     num_classes = loaders["num_classes"]

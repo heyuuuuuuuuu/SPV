@@ -5,10 +5,11 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import numpy as np
+from src.config import PIXELIZED_DIR, RENDERED_DIR
 from src.core.pixelize import pixelize, batch_pixelize
 
-INPUT_DIR = "E:/dataset/char_rendered_hei"
-OUTPUT_DIR = "E:/dataset/char_pixelized"
+INPUT_DIR = str(RENDERED_DIR)
+OUTPUT_DIR = str(PIXELIZED_DIR)
 GRID_SIZES = [6, 8, 10, 12]
 THRESHOLD = 0.20
 

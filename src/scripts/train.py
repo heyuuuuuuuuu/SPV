@@ -4,14 +4,15 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from src.config import COMPLEXITY_CSV, LABELS_CSV, OUTPUTS_DIR
 from src.training.trainer import train
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="SPV 汉字识别模型训练")
-    parser.add_argument("--labels-csv", default="E:/dataset/char_spv_augmented/labels.csv")
-    parser.add_argument("--output-dir", default="outputs/train_recognition")
+    parser.add_argument("--labels-csv", default=str(LABELS_CSV))
+    parser.add_argument("--output-dir", default=str(OUTPUTS_DIR / "train_recognition"))
     parser.add_argument("--model", default="light_cnn", choices=["light_cnn", "resnet18"])
     parser.add_argument("--resolution", default=None)
     parser.add_argument("--scan-mode", default=None)
@@ -22,7 +23,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--complexity-csv", default="E:/dataset/complexity_scores.csv")
+    parser.add_argument("--complexity-csv", default=str(COMPLEXITY_CSV))
 
     args = parser.parse_args()
 

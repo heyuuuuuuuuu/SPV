@@ -11,12 +11,14 @@ import numpy as np
 from PIL import Image
 from collections import defaultdict
 
+from src.config import ADAPTIVE_PIXELIZED_DIR, COMPLEXITY_CSV as DEFAULT_COMPLEXITY_CSV, DATA_DIR, PIXELIZED_DIR, RENDERED_DIR
+
 # ── 配置 ──
-ORIGINAL_DIR = "E:/dataset/char_rendered_hei/64x64"
-FIXED_DIR = "E:/dataset/char_pixelized"         # 6×6, 8×8, 10×10, 12×12
-ADAPTIVE_DIR = "E:/dataset/char_adaptive_pixelized"  # 8×8, 10×10, 12×12
-COMPLEXITY_CSV = "E:/dataset/complexity_scores.csv"
-OUTPUT_CSV = "E:/dataset/comparison_results.csv"
+ORIGINAL_DIR = str(RENDERED_DIR / "64x64")
+FIXED_DIR = str(PIXELIZED_DIR)         # 6×6, 8×8, 10×10, 12×12
+ADAPTIVE_DIR = str(ADAPTIVE_PIXELIZED_DIR)  # 8×8, 10×10, 12×12
+COMPLEXITY_CSV = str(DEFAULT_COMPLEXITY_CSV)
+OUTPUT_CSV = str(DATA_DIR / "comparison_results.csv")
 
 
 def load_pixelized(path: str) -> np.ndarray:

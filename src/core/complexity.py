@@ -136,55 +136,14 @@ def batch_compute(input_dir: str, output_csv: str, size: int = 64):
     lo_hi = max(lows) if lows else 0
     med_hi = max(meds) if meds else 0
 
-    print(f"总计: {len(results)} 个汉字")
-    print(f"  低复杂度 (≤{lo_hi:.4f}): {low:4d} ({low/len(results)*100:5.1f}%)")
-    print(f"  中复杂度 ({lo_hi:.4f}~{med_hi:.4f}): {med:4d} ({med/len(results)*100:5.1f}%)")
-    print(f"  高复杂度 (≥{min(highs):.4f} if highs else '?'): {high:4d} ({high/len(results)*100:5.1f}%)")
+    total = len(results)
+    if total == 0:
+        raise ValueError(f"未在目录中找到 PNG 图像: {folder}")
+    high_boundary = f"{min(highs):.4f}" if highs else "?"
+    print(f"总计: {total} 个汉字")
+    print(f"  低复杂度 (≤{lo_hi:.4f}): {low:4d} ({low/total*100:5.1f}%)")
+    print(f"  中复杂度 ({lo_hi:.4f}~{med_hi:.4f}): {med:4d} ({med/total*100:5.1f}%)")
+    print(f"  高复杂度 (≥{high_boundary}): {high:4d} ({high/total*100:5.1f}%)")
     print(f"\nCSV 已保存: {output_csv}")
 
     return results
-
-
-# ═══════════════════════════════════════════════════════════
-# 主程序 — BPSCA (黑色像素统计复杂度算法)
-# ═══════════════════════════════════════════════════════════
-if __name__ == "__main__":
-    import sys
-
-    INPUT_DIR = "E:/dataset/char_rendered_hei"
-
-    # BPSCA 单字查询: python complexity.py 明 [64|128]
-    if len(sys.argv) > 1:
-        char = sys.argv[1]
-        if len(char) == 1 and "\u4e00" <= char <= "\u9fff":
-            size = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] in ("64", "128") else "64"
-            fname = f"{char}_U+{ord(char):04X}.png"
-            path = os.path.join(INPUT_DIR, f"{size}x{size}", fname)
-            if not os.path.exists(path):
-                print(f"未找到汉字 '{char}' 的 {size}x{size} 图像")
-            else:
-                result = compute_complexity(path)
-                # 从 CSV 查等级
-                csv_path = "E:/dataset/complexity_scores.csv" if size == "64" else "E:/dataset/complexity_scores_128.csv"
-                level = "unknown"
-                if os.path.exists(csv_path):
-                    with open(csv_path, encoding="utf-8-sig") as f:
-                        for row in csv.reader(f):
-                            if row[0] == char:
-                                level = row[2]
-                                break
-                print(f"{char},{result['complexity']},{level}")
-            sys.exit(0)
-
-    # BPSCA 批量计算
-    OUTPUT_CSV = "E:/dataset/complexity_scores.csv"
-    print("=" * 50)
-    print("BPSCA 汉字复杂度计算 — 64×64")
-    print("=" * 50)
-    batch_compute(INPUT_DIR, OUTPUT_CSV, size=64)
-
-    print(f"\n{'=' * 50}")
-    print("BPSCA 汉字复杂度计算 — 128×128")
-    print("=" * 50)
-    OUTPUT_CSV_128 = "E:/dataset/complexity_scores_128.csv"
-    batch_compute(INPUT_DIR, OUTPUT_CSV_128, size=128)

@@ -13,6 +13,8 @@ import argparse
 import numpy as np
 from PIL import Image
 
+from src.config import DATA_DIR, PIXELIZED_DIR
+
 
 # ═══════════════════════════════════════════════════════════
 # 底层: 高斯光斑渲染
@@ -252,9 +254,9 @@ def process_all_characters(
 
 def main():
     parser = argparse.ArgumentParser(description="部件顺序扫描显示模型")
-    parser.add_argument("--input-dir", default="E:/dataset/char_pixelized/8x8",
+    parser.add_argument("--input-dir", default=str(PIXELIZED_DIR / "8x8"),
                         help="单个汉字的输入目录 (单字模式) 或用于批量")
-    parser.add_argument("--output-dir", default="E:/dataset/scan_sequence",
+    parser.add_argument("--output-dir", default=str(DATA_DIR / "scan_sequence"),
                         help="输出目录")
     parser.add_argument("--scan-modes", nargs="+",
                         default=["left-right", "top-bottom", "center-out", "skeleton"],
@@ -265,7 +267,7 @@ def main():
     parser.add_argument("--batch", action="store_true",
                         help="批量模式: 处理 input-dir 下所有 PNG")
     parser.add_argument("--batch-root", type=str, default=None,
-                        help="批量根目录 (如 E:/dataset/char_pixelized, 自动处理 6x6/8x8/...)")
+                        help="批量根目录 (默认可用 data/char_pixelized，自动处理各分辨率)")
     parser.add_argument("--char", type=str, default=None,
                         help="指定演示汉字 (单字模式)")
     
